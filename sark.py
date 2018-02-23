@@ -126,6 +126,21 @@ def decode_loglevel(string_level):
     return int_level
 
 
+def config_from_file(conf_file):
+    """Read the configuration from disk
+
+    Args:
+        conf_file (str): configuration file name
+
+    Returns:
+        dict: dictionary of configuration items
+    """
+    import configparser
+    config = configparser.ConfigParser()
+    config.read(conf_file)
+    return config
+
+
 if __name__ == '__main__':
     import argparse
     import logging
@@ -140,7 +155,8 @@ if __name__ == '__main__':
     CLIENT = setup_client()
 
     if not TOKEN:
-        TOKEN = ARGS.file.strip()
+        CONFDATA = config_from_file(ARGS.file.strip())
+        TOKEN = CONFDATA['DEFAULT']['Token']
 
     if TOKEN:
         if not ARGS.offline:
