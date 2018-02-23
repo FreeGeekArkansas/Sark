@@ -7,7 +7,50 @@ To install prerequisite packages try this::
 You can run this bot by supplying a token on the command line or through a
 file.
 """
+import random
+from functools import reduce
 import discord
+
+
+def fold_sum(xs):  # pylint: disable=invalid-name
+    """Sum up the elements in the list xs.
+
+    Args:
+        xs (list): The items we are about to sum up
+    """
+    return reduce(lambda x, y: x+y, xs)
+
+
+def calculate_checksum(bare_code):
+    """Calculate the checksum digit for UPC-A and stuff"""
+    odds = [bare_code[x] for x in range(1, len(bare_code) - 1, 2)]
+    evens = [bare_code[x] for x in range(0, len(bare_code) - 1, 2)]
+    odd_sum = fold_sum(odds)
+    even_sum = fold_sum(evens)
+    spec = ((3 * odd_sum) + even_sum) % 10
+    if spec == 0:
+        return 0
+
+    return 10 - spec
+
+
+def gen_barcode_digit(engine):
+    """Pick a random number between 0 and 9"""
+    return int(engine.triangular(0, 9))
+
+
+def generate_random_barcode_digits():
+    """Generate a set of digits"""
+    rand_engine = random.SystemRandom()
+    digits = [4, 0, 0, 0, 0, 0]
+    for i in range(5):  # pylint: disable=unused-variable
+        digits.append(gen_barcode_digit(rand_engine))
+
+    digits.append(calculate_checksum(digits[0:10]))
+    return '{}{}{}{}{}{}{}{}{}{}{}{}'.format(
+        digits[0], digits[1], digits[2], digits[3],
+        digits[4], digits[5], digits[6], digits[7],
+        digits[8], digits[9], digits[10], digits[11])
 
 
 def setup_client():
@@ -38,6 +81,11 @@ def setup_client():
             await discord_client.send_message(
                 message.channel,
                 'https://wiki.at.freegeekarkansas.org/')
+        elif message.content.startswith('!barcode'):
+            # TODO: reserve, validate, and set logic
+            await discord_client.send_message(
+                message.channel,
+                generate_random_barcode_digits())
 
     return discord_client
 
