@@ -58,7 +58,8 @@ def setup_client(cmd_prefix):
     """Initialize the Discord client API and setup triggers"""
 
     bot = commands.Bot(command_prefix=cmd_prefix,
-                       description='Sark, the (sometimes)helpful bot')
+                       description='Sark, the (sometimes)helpful bot',
+                       pm_help=True)
 
     @bot.event
     async def on_ready():  # pylint: disable=unused-variable
