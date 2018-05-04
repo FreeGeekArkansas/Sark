@@ -10,6 +10,7 @@ file.
 import random
 from functools import reduce
 import discord
+from discord.ext import commands
 
 
 def fold_sum(xs):  # pylint: disable=invalid-name
@@ -53,41 +54,50 @@ def generate_random_barcode_digits():
         digits[8], digits[9], digits[10], digits[11])
 
 
-def setup_client():
+def setup_client(cmd_prefix):
     """Initialize the Discord client API and setup triggers"""
 
-    discord_client = discord.Client()
+    bot = commands.Bot(command_prefix=cmd_prefix,
+                       description='Sark, the (sometimes)helpful bot')
 
-    @discord_client.event
+    @bot.event
     async def on_ready():  # pylint: disable=unused-variable
         """Once connected you should get a nice debug message"""
-        print('We\'re in as')
-        print(discord_client.user.name)
-        print(discord_client.user.id)
-        print(', sweet!')
+        print('We\'re in as ' + bot.user.name
+              + ' id ' + bot.user.id + ', sweet!')
 
-    @discord_client.event
-    async def on_message(message):  # pylint: disable=unused-variable
-        """Main trigger entry point. We have a message, now deal with it.
+    @bot.command()
+    async def wiki():  # pylint: disable=unused-variable
+        """Send the URL for the wiki at Free Geek Arkansas."""
+        await bot.say(
+            embed=discord.Embed(title='Free Geek Arkansas Wiki - Edit Today!',
+                                url='https://wiki.at.freegeekarkansas.org')
+            )
 
-        Args:
-            message (str): The message recieved from Discord
-        """
-        if message.content.startswith('!osticket'):
-            await discord_client.send_message(
-                message.channel,
-                'https://osticket.at.freegeekarkansas.org/')
-        elif message.content.startswith('!wiki'):
-            await discord_client.send_message(
-                message.channel,
-                'https://wiki.at.freegeekarkansas.org/')
-        elif message.content.startswith('!barcode'):
-            # TODO: reserve, validate, and set logic
-            await discord_client.send_message(
-                message.channel,
-                generate_random_barcode_digits())
+    @bot.command()
+    async def osticket():  # pylint: disable=unused-variable
+        """Send the URL for osticket at Free Geek Arkansas."""
+        await bot.say(
+            embed=discord.Embed(title='Free Geek Arkansas TODO List',
+                                url='https://osticket.at.freegeekarkansas.org')
+            )
 
-    return discord_client
+    @bot.command()
+    async def barcode():  # pylint: disable=unused-variable
+        """Generate a random barcode starting with 400000"""
+        await bot.say(generate_random_barcode_digits())
+
+    @bot.command()
+    async def info():  # pylint: disable=unused-variable
+        """Embed details about this bot into the channel"""
+        embed = discord.Embed(title="Sark is a helpful bot",
+                              description="Being helpful with no breaks")
+        embed.add_field(name="Author", value="Zac Slade")
+        embed.add_field(name="GitHub Organization", value="Free Geek Arkansas")
+        embed.add_field(name="GitHub Team", value="Dev Heads")
+        await bot.say(embed=embed)
+
+    return bot
 
 
 def run_sark(discord_client, secret_token):
@@ -200,10 +210,10 @@ if __name__ == '__main__':
                                      mode='w')
 
     TOKEN = ARGS.token.strip()
-    CLIENT = setup_client()
+    CONFDATA = config_from_file(ARGS.file.strip())
+    CLIENT = setup_client(CONFDATA['DEFAULT']['CmdPrefix'])
 
     if not TOKEN:
-        CONFDATA = config_from_file(ARGS.file.strip())
         TOKEN = CONFDATA['DEFAULT']['Token']
 
     if TOKEN:
