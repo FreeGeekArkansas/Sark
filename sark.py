@@ -3,6 +3,7 @@
 
 To install prerequisite packages try this::
     $ python3 -m pip install discord.py --user
+    $ python3 -m pip install python-barcode --user
 
 You can run this bot by supplying a token on the command line or through a
 file.
@@ -11,6 +12,9 @@ import random
 from functools import reduce
 import discord
 from discord.ext import commands
+
+import barcode as bc
+UPCA = bc.get_barcode_class('upca')
 
 
 def fold_sum(xs):  # pylint: disable=invalid-name
@@ -54,7 +58,15 @@ def generate_random_barcode_digits():
         digits[8], digits[9], digits[10], digits[11])
 
 
-def setup_client(cmd_prefix):
+def create_barcode_svg(code):
+    """Create a barcode svg file on disk."""
+    upca = UPCA(code)
+    svg = upca.save('upca/' + code)
+    print(svg)
+    return svg
+
+
+def setup_client(cmd_prefix, logger):
     """Initialize the Discord client API and setup triggers"""
 
     bot = commands.Bot(command_prefix=cmd_prefix,
@@ -66,6 +78,7 @@ def setup_client(cmd_prefix):
         """Once connected you should get a nice debug message"""
         print('We\'re in as ' + bot.user.name
               + ' id ' + bot.user.id + ', sweet!')
+        logger.info("Connected Successfully")
 
     @bot.command()
     async def wiki():  # pylint: disable=unused-variable
@@ -74,6 +87,7 @@ def setup_client(cmd_prefix):
             embed=discord.Embed(title='Free Geek Arkansas Wiki - Edit Today!',
                                 url='https://wiki.at.freegeekarkansas.org')
             )
+        logger.debug("sent the wiki link")
 
     @bot.command()
     async def osticket():  # pylint: disable=unused-variable
@@ -82,11 +96,31 @@ def setup_client(cmd_prefix):
             embed=discord.Embed(title='Free Geek Arkansas TODO List',
                                 url='https://osticket.at.freegeekarkansas.org')
             )
+        logger.debug("sent the osticket link")
 
-    @bot.command()
-    async def barcode():  # pylint: disable=unused-variable
+    @bot.group(pass_context=True)
+    async def barcode(ctx):
+        """Generic definition for command group"""
+        if ctx.invoked_subcommand is None:
+            await bot.say('Invalid barcode command used: ' +
+                          'try barcode generate or barcode using <barcode>')
+            logger.debug("barcode command used incorrectly")
+
+    @barcode.command()
+    async def generate():  # pylint: disable=unused-variable
         """Generate a random barcode starting with 400000"""
-        await bot.say(generate_random_barcode_digits())
+        code = generate_random_barcode_digits()
+        logger.debug("new barcode string " + code + " generated")
+        svg = create_barcode_svg(code)
+        await bot.upload(svg)
+        logger.debug("Uploaded: " + svg)
+
+    @barcode.command()
+    async def using(code: str):  # pylint: disable=unused-variable
+        """Use a given barcode value to generate an svg, if it's valid upca"""
+        svg = create_barcode_svg(code)
+        await bot.upload(svg)
+        logger.debug("Uploaded: " + svg)
 
     @bot.command()
     async def info():  # pylint: disable=unused-variable
@@ -101,7 +135,7 @@ def setup_client(cmd_prefix):
     return bot
 
 
-def run_sark(discord_client, secret_token):
+def run_sark(discord_client, secret_token, logger):
     """Once initialized and ready for action, run Sark and use the bot.
 
     Args:
@@ -109,6 +143,7 @@ def run_sark(discord_client, secret_token):
         secret_token (str) = Secret communications token for the bot
 
     """
+    logger.info("Starting communication")
     discord_client.run(secret_token)
 
 
@@ -209,17 +244,20 @@ if __name__ == '__main__':
     LOGHANDLER = logging.FileHandler(filename=ARGS.logfile,
                                      encoding='utf-8',
                                      mode='w')
+    LOGHANDLER.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:' +
+                                              '%(name)s: %(message)s'))
+    LOGGER.addHandler(LOGHANDLER)
 
     TOKEN = ARGS.token.strip()
     CONFDATA = config_from_file(ARGS.file.strip())
-    CLIENT = setup_client(CONFDATA['DEFAULT']['CmdPrefix'])
+    CLIENT = setup_client(CONFDATA['DEFAULT']['CmdPrefix'], LOGGER)
 
     if not TOKEN:
         TOKEN = CONFDATA['DEFAULT']['Token']
 
     if TOKEN:
         if not ARGS.offline:
-            run_sark(CLIENT, TOKEN)
+            run_sark(CLIENT, TOKEN, LOGGER)
         else:
             print('Token provided, but offline mode was forced.')
     else:
